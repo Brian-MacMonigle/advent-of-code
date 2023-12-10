@@ -55,7 +55,7 @@ impl Card {
             'A' => 14,
             'K' => 13,
             'Q' => 12,
-            'J' => 11,
+            'J' => 1, // Part 2: Joker is now worth 1 point
             'T' => 10,
             '9' | '8' | '7' | '6' | '5' | '4' | '3' | '2' => card.to_digit(10).unwrap(),
             _ => panic!("Could not parse card value '{}'", card),
@@ -72,7 +72,7 @@ impl Card {
             14 => 'A',
             13 => 'K',
             12 => 'Q',
-            11 => 'J',
+            1 => 'J', // Part 2: Joker is now worth 1 point
             10 => 'T',
             9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 => char::from_digit(self.0, 10).unwrap(),
             _ => panic!("Unknown Card Contents"),
@@ -105,7 +105,7 @@ impl Hand {
     }
 
     fn rank(cards: &[Card; 5]) -> Rank {
-        let counts: HashMap<Card, u32> = cards.iter().fold(HashMap::new(), |mut map, card| {
+        let mut counts: HashMap<Card, u32> = cards.iter().fold(HashMap::new(), |mut map, card| {
             if let Some(count) = map.get_mut(card) {
                 *count += 1;
             } else {
@@ -113,6 +113,8 @@ impl Hand {
             };
             map
         });
+
+        let jokers: u32 = counts.remove(&Card::parse('J')).unwrap_or(0);
 
         // sort in decreasing value order
         let mut sorted: Vec<u32> = counts.into_values().collect();
@@ -122,12 +124,20 @@ impl Hand {
 
         match (sorted_iter.next(), sorted_iter.next()) {
             // In value order
-            (Some(a), _) if a == 5 => Rank::Five,
-            (Some(a), _) if a == 4 => Rank::Four,
-            (Some(a), Some(b)) if a == 3 && b == 2 => Rank::FullHouse,
-            (Some(a), _) if a == 3 => Rank::Three,
-            (Some(a), Some(b)) if a == 2 && b == 2 => Rank::TwoPair,
-            (Some(a), _) if a == 2 => Rank::OnePair,
+            (Some(a), _) if a + jokers == 5 => Rank::Five,
+            (Some(a), _) if a + jokers == 4 => Rank::Four,
+            (Some(a), Some(b)) if a + jokers == 3 && b == 2 => Rank::FullHouse,
+            (Some(a), _) if a + jokers == 3 => Rank::Three,
+            (Some(a), Some(b)) if a + jokers == 2 && b == 2 => Rank::TwoPair,
+            (Some(a), _) if a + jokers == 2 => Rank::OnePair,
+            // If only jokers, count Jokers
+            (None, None) => match jokers {
+                5 => Rank::Five,
+                4 => Rank::Four,
+                3 => Rank::Three,
+                2 => Rank::OnePair,
+                _ => Rank::HighCard,
+            },
             _ => Rank::HighCard,
         }
     }
@@ -156,11 +166,15 @@ QQQJA 483";
 
     #[test]
     fn test_part_one() {
-        let hands: Vec<Hand> = TEXT.lines().map(Hand::parse).collect();
+        // let hands: Vec<Hand> = TEXT.lines().map(Hand::parse).collect();
 
-        assert_eq!(winnings(&hands), 6440);
+        // assert_eq!(winnings(&hands), 6440);
     }
 
     #[test]
-    fn test_part_two() {}
+    fn test_part_two() {
+        let hands: Vec<Hand> = TEXT.lines().map(Hand::parse).collect();
+
+        assert_eq!(winnings(&hands), 5905);
+    }
 }
