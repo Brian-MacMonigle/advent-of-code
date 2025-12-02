@@ -15,7 +15,10 @@ fn main() {
 
     let password = count_zeros(&lines);
 
-    println!("Password: {}", password)
+    let rotate_password = count_rotate_zeros(&lines);
+
+    println!("Password: {}", password);
+    println!("method 0x434C49434B: {}", rotate_password);
 }
 
 fn count_zeros(lines: &[&str]) -> u32 {
@@ -28,6 +31,45 @@ fn count_zeros(lines: &[&str]) -> u32 {
         }
     }
     zero_counter
+}
+
+fn count_rotate_zeros(lines: &[&str]) -> u32 {
+    let mut location = 50;
+    let mut count: u32 = 0;
+
+    for line in lines {
+        let change = parse_line(line);
+
+        let new = location + change;
+
+        if new >= 100 {
+            count += (new / 100) as u32;
+        } else if new < 0 {
+            count += (new / 100).abs() as u32 + 1;
+            // If we started at zero, don't double count
+            if location == 0 {
+                count -= 1;
+            }
+        } else if new == 0 {
+            count += 1;
+        }
+
+        location = ((new % 100) + 100) % 100
+    }
+    count
+}
+
+fn parse_line(change: &str) -> i32 {
+    let dir: i32 = match change.chars().nth(0) {
+        Some('L') => -1,
+        Some('R') => 1,
+        _ => panic!("Unknown rotate direction {}", change),
+    };
+    let amount_slice = &change[1..change.len()];
+    let amount = amount_slice
+        .parse::<i32>()
+        .expect(format!("Not a number: {}", amount_slice).as_str());
+    amount * dir
 }
 
 fn rotate(location: u32, change: &str) -> u32 {
@@ -63,6 +105,23 @@ fn test_count_zeros() {
 }
 
 #[test]
+fn test_count_rotate_zeros() {
+    let lines = vec![
+        "L68", "L30", "R48", "L5", "R60", "L55", "L1", "L99", "R14", "L82",
+    ];
+
+    let password = count_rotate_zeros(&lines);
+    assert_eq!(password, 6);
+}
+
+#[test]
+fn test_count_rotate_zeros_edge_case() {
+    let lines = vec!["R42", "L892"];
+    let password = count_rotate_zeros(&lines);
+    assert_eq!(password, 9);
+}
+
+#[test]
 fn test_rotate_left() {
     let mut location = 82;
     location = rotate(location, "L30");
@@ -71,10 +130,7 @@ fn test_rotate_left() {
     let mut location = 82;
     location = rotate(location, "L3");
     assert_eq!(location, 79);
-}
 
-#[test]
-fn test_rotate_left_rollover() {
     let mut location = 50;
     location = rotate(location, "L68");
     assert_eq!(location, 82);
@@ -101,10 +157,7 @@ fn test_rotate_right() {
     let mut location = 0;
     location = rotate(location, "R300");
     assert_eq!(location, 0);
-}
 
-#[test]
-fn test_rotate_right_rollover() {
     let mut location = 95;
     location = rotate(location, "R60");
     assert_eq!(location, 55);
