@@ -1,2 +1,5 @@
 *.pdb
 *.exe
+input.txt
+/target
+.vscode
