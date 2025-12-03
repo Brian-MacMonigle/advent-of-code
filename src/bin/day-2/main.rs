@@ -15,9 +15,16 @@ fn main() {
         .map(parse_range)
         .collect::<Vec<Range<u64>>>();
 
-    let invalid_range_sum = sum_invalid_ids(&ranges);
+    let invalid_range_sum = sum_invalid_ids(&ranges, is_repeat);
 
     println!("Sum of invalid ids: {}", invalid_range_sum);
+
+    let multi_repeat_invalid_range_sum = sum_invalid_ids(&ranges, is_multi_repeat);
+
+    println!(
+        "Sum of multi repeat invalid ids: {}",
+        multi_repeat_invalid_range_sum
+    );
 }
 
 fn parse_range(text: &str) -> Range<u64> {
@@ -39,20 +46,16 @@ fn parse_range(text: &str) -> Range<u64> {
     }
 }
 
-fn sum_invalid_ids(ranges: &[Range<u64>]) -> u64 {
+fn sum_invalid_ids(ranges: &[Range<u64>], matches: fn(u64) -> bool) -> u64 {
     let mut sum = 0;
     for range in ranges {
         for id in range.start..=range.end {
-            if !is_valid_id(id) {
+            if matches(id) {
                 sum += id;
             }
         }
     }
     sum
-}
-
-fn is_valid_id(id: u64) -> bool {
-    !is_repeat(id)
 }
 
 fn is_repeat(id: u64) -> bool {
@@ -64,6 +67,28 @@ fn is_repeat(id: u64) -> bool {
     let first = &id_str[0..id_str.len() / 2];
     let last = &id_str[id_str.len() / 2..id_str.len()];
     first == last
+}
+
+fn is_multi_repeat(id: u64) -> bool {
+    let id_str = id.to_string();
+
+    for size in (1..id_str.len()).filter(|size| id_str.len() % size == 0) {
+        let parts_to_find = id_str.len() / size;
+        let find = &id_str[0..size];
+        let mut matched = true;
+        for i in 1..parts_to_find {
+            let found = &id_str[i * size..i * size + size];
+            if find != found {
+                matched = false;
+                // break early if we find one false match for this size
+                break;
+            }
+        }
+        if matched {
+            return true;
+        }
+    }
+    return false;
 }
 
 #[test]
@@ -81,25 +106,31 @@ fn test_parse_range() {
 #[test]
 fn test_sum_invalid_ids() {
     assert_eq!(
-        sum_invalid_ids(&vec![Range { start: 11, end: 22 }]),
+        sum_invalid_ids(&vec![Range { start: 11, end: 22 }], is_repeat),
         11 + 22
     );
 
     assert_eq!(
-        sum_invalid_ids(&vec![Range {
-            start: 95,
-            end: 115
-        }]),
+        sum_invalid_ids(
+            &vec![Range {
+                start: 95,
+                end: 115
+            }],
+            is_repeat
+        ),
         99
     );
 
     assert_eq!(
-        sum_invalid_ids(&vec![
-            Range { start: 1, end: 2 },
-            Range { start: 3, end: 4 },
-            Range { start: 11, end: 11 },
-            Range { start: 22, end: 22 },
-        ]),
+        sum_invalid_ids(
+            &vec![
+                Range { start: 1, end: 2 },
+                Range { start: 3, end: 4 },
+                Range { start: 11, end: 11 },
+                Range { start: 22, end: 22 },
+            ],
+            is_repeat
+        ),
         11 + 22
     );
 }
@@ -123,4 +154,20 @@ fn test_is_repeat_false() {
     assert_eq!(is_repeat(2121212118), false);
     assert_eq!(is_repeat(565653), false);
     assert_eq!(is_repeat(565659), false);
+}
+
+#[test]
+fn test_is_multi_repeat_true() {
+    assert_eq!(is_multi_repeat(11), true);
+    assert_eq!(is_multi_repeat(1010), true);
+    assert_eq!(is_multi_repeat(123123123), true);
+}
+
+#[test]
+fn test_is_multi_repeat_false() {
+    assert_eq!(is_multi_repeat(1698522), false);
+    assert_eq!(is_multi_repeat(1698528), false);
+    assert_eq!(is_multi_repeat(2121212118), false);
+    assert_eq!(is_multi_repeat(565653), false);
+    assert_eq!(is_multi_repeat(565659), false);
 }
