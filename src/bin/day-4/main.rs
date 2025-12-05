@@ -14,6 +14,14 @@ fn main() {
     let accessible_sum = grid.sum_accessible();
 
     println!("Sum of accessible papers: {}", accessible_sum);
+
+    let removed = grid.remove_all_accessible();
+    let removed_string = removed.to_accessible_string();
+    println!("{}\n", removed_string);
+
+    let removed_papers = grid.total_papers() - removed.total_papers();
+
+    println!("Total papers removed: {}", removed_papers);
 }
 
 #[derive(PartialEq, Debug, Copy, Clone)]
@@ -27,7 +35,8 @@ impl Square {
         match input {
             '.' => Ok(Square::Clear),
             '@' => Ok(Square::Paper),
-            x => Err(format!("{} is not '.' or '@'", x)),
+            'x' => Ok(Square::Clear),
+            x => Err(format!("{} is not '.', '@', or 'x'", x)),
         }
     }
 }
@@ -154,6 +163,34 @@ impl<const W: usize, const H: usize> Grid<W, H> {
 
         output
     }
+
+    fn remove_accessible(self) -> Grid<W, H> {
+        let accessible_string = self.to_accessible_string();
+        let removed = Grid::new(&accessible_string).expect("Failed parsing accessible string");
+        removed
+    }
+
+    fn remove_all_accessible(self) -> Grid<W, H> {
+        let mut accessible = self.sum_accessible();
+        let mut removed = self.remove_accessible();
+        while accessible != 0 {
+            removed = removed.remove_accessible();
+            accessible = removed.sum_accessible();
+        }
+        removed
+    }
+
+    fn total_papers(self) -> usize {
+        let mut count = 0;
+        for row in self.0.iter() {
+            for square in row.0.iter() {
+                if *square == Square::Paper {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
 }
 
 #[test]
@@ -165,6 +202,12 @@ fn test_square_new_clear() {
 fn test_square_new_paper() {
     assert_eq!(Square::new('@'), Ok(Square::Paper));
 }
+
+#[test]
+fn test_square_new_removed_paper() {
+    assert_eq!(Square::new('x'), Ok(Square::Clear));
+}
+
 #[test]
 fn test_square_new_invalid() {
     assert!(Square::new('B').is_err());
@@ -172,7 +215,7 @@ fn test_square_new_invalid() {
 
 #[test]
 fn test_row_new() {
-    let row = Row::<6>::new("..@.@.").expect("Row parse failed!");
+    let row = Row::<6>::new("x.@.@x").expect("Row parse failed!");
 
     assert_eq!(row.0[0], Square::Clear);
     assert_eq!(row.0[1], Square::Clear);
@@ -194,12 +237,12 @@ fn test_row_new_invalid_length_long() {
 
 #[test]
 fn test_row_new_invalid_contents() {
-    assert!(Row::<3>::new("a.@").is_err());
+    assert!(Row::<4>::new("a.@x").is_err());
 }
 
 #[test]
 fn test_grid_new() {
-    let grid: Grid<4, 2> = Grid::new("..@.\n.@..").expect("Grid parse failed!");
+    let grid: Grid<4, 2> = Grid::new(".x@.\n.@.x").expect("Grid parse failed!");
     assert_eq!(grid.0[0].0[0], Square::Clear);
     assert_eq!(grid.0[0].0[1], Square::Clear);
     assert_eq!(grid.0[0].0[2], Square::Paper);
@@ -229,6 +272,16 @@ fn test_grid_hight_short() {
 #[test]
 fn test_grid_hight_long() {
     assert!(Grid::<4, 1>::new("xx@x\nx@xx").is_err());
+}
+
+#[test]
+fn test_grid_count_papers() {
+    assert_eq!(
+        Grid::<4, 2>::new("..@.\n.@..")
+            .expect("Grid parse failed!")
+            .total_papers(),
+        2
+    );
 }
 
 #[test]
@@ -264,4 +317,77 @@ x.x.@@@.x.
     assert_eq!(accessible, expected);
 
     assert_eq!(grid.sum_accessible(), 13);
+}
+
+#[test]
+fn test_grid_remove_accessible() {
+    let input = "
+..@@.@@@@.
+@@@.@.@.@@
+@@@@@.@.@@
+@.@@@@..@.
+@@.@@@@.@@
+.@@@@@@@.@
+.@.@.@.@@@
+@.@@@.@@@@
+.@@@@@@@@.
+@.@.@@@.@.
+    ";
+    let grid = Grid::<10, 10>::new(input).expect("Grid parse failed!");
+    let removed = grid.remove_accessible();
+    let accessible = removed.to_accessible_string();
+    println!("{}", accessible);
+    // Note: we are using the 'now accessible' from the example
+    let expected = "
+.......x..
+.@@.x.x.@x
+x@@@@...@@
+x.@@@@..x.
+.@.@@@@.x.
+.x@@@@@@.x
+.x.@.@.@@@
+..@@@.@@@@
+.x@@@@@@@.
+....@@@...
+"
+    .trim();
+    assert_eq!(accessible, expected);
+
+    assert_eq!(grid.sum_accessible(), 13);
+}
+
+#[test]
+fn test_grid_remove_all_accessible() {
+    let input = "
+..@@.@@@@.
+@@@.@.@.@@
+@@@@@.@.@@
+@.@@@@..@.
+@@.@@@@.@@
+.@@@@@@@.@
+.@.@.@.@@@
+@.@@@.@@@@
+.@@@@@@@@.
+@.@.@@@.@.
+    ";
+    let grid = Grid::<10, 10>::new(input).expect("Grid parse failed!");
+    let removed = grid.remove_all_accessible();
+    let accessible = removed.to_accessible_string();
+    println!("{}", accessible);
+    let expected = "
+..........
+..........
+..........
+....@@....
+...@@@@...
+...@@@@@..
+...@.@.@@.
+...@@.@@@.
+...@@@@@..
+....@@@...
+"
+    .trim();
+    assert_eq!(accessible, expected);
+    assert_eq!(removed.sum_accessible(), 0);
+    assert_eq!(grid.total_papers() - removed.total_papers(), 43);
 }
