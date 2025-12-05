@@ -33,6 +33,10 @@ fn main() {
     }
 
     println!("Fresh Ingredients: {}", fresh_count);
+
+    let fresh_range_size = ranges.size();
+
+    println!("Total possible Fresh Ingredients: {}", fresh_range_size);
 }
 
 fn parse_range(line: &str) -> Result<Range, Box<dyn Error>> {
@@ -79,6 +83,11 @@ impl Range {
             end: max(self.end, other.end),
         })
     }
+
+    fn size(&self) -> u64 {
+        // plus one because inclusive range
+        self.end - self.start + 1
+    }
 }
 
 struct Ranges(Vec<Range>);
@@ -104,6 +113,10 @@ impl Ranges {
 
     fn contains(&self, value: u64) -> bool {
         self.0.iter().any(|range| range.contains(value))
+    }
+
+    fn size(&self) -> u64 {
+        self.0.iter().fold(0, |sum, range| sum + range.size())
     }
 }
 
@@ -174,6 +187,12 @@ fn test_range_merge_failure() {
 }
 
 #[test]
+fn test_range_size() {
+    let one = Range { start: 10, end: 20 };
+    assert_eq!(one.size(), 11); // inclusive
+}
+
+#[test]
 fn test_ranges_merge_join() {
     let one = Range { start: 10, end: 20 };
     let two = Range { start: 15, end: 30 };
@@ -231,4 +250,17 @@ fn test_ranges_contains() {
 
     assert!(!ranges.contains(17));
     assert!(!ranges.contains(40));
+}
+
+#[test]
+fn test_ranges_size() {
+    let one = Range { start: 10, end: 15 };
+    let two = Range { start: 20, end: 30 };
+    let three = Range { start: 50, end: 60 };
+    let mut ranges = Ranges::new();
+    ranges.merge(one);
+    ranges.merge(two);
+    ranges.merge(three);
+
+    assert_eq!(ranges.size(), 6 + 11 + 11);
 }
